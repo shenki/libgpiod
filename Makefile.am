@@ -26,6 +26,13 @@ endif
 # libgpiomockup to be already present.
 SUBDIRS += bindings
 
+if WITH_DBUS
+
+# DBus daemon needs GLib bindings, so this must be built after.
+SUBDIRS += dbus
+
+endif
+
 if HAS_DOXYGEN
 
 doc:

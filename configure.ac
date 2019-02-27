@@ -217,6 +217,33 @@ then
 	PKG_CHECK_MODULES([GIO_UNIX], [gio-unix-2.0 >= 2.50])
 fi
 
+# Depends on GLib bindings so must come after
+AC_ARG_ENABLE([dbus],
+	[AC_HELP_STRING([--enable-dbus],
+		[build dbus daemon [default=no]])],
+	[if test "x$enableval" == xyes; then with_dbus=true; fi],
+	[with_dbus=false])
+AM_CONDITIONAL([WITH_DBUS], [test "x$with_dbus" = xtrue])
+
+AC_DEFUN([FUNC_NOT_FOUND_GLIB],
+	[ERR_NOT_FOUND([$1()], [dbus daemon])])
+
+if test "x$with_dbus" = xtrue && test "x$with_bindings_glib" != xtrue
+then
+	AC_MSG_ERROR([GLib bindings are required to build the dbus daemon - use --enable-bindings-glib])
+fi
+
+if test "x$with_dbus" = xtrue
+then
+	AC_CHECK_FUNC([daemon], [], [FUNC_NOT_FOUND_GLIB([daemon])])
+	PKG_CHECK_MODULES([GUDEV], [gudev-1.0 >= 230])
+	AC_CHECK_PROG([has_gdbus_codegen], [gdbus-codegen], [true], [false])
+	if test "x$has_gdbus_codegen" = xfalse
+	then
+		AC_MSG_ERROR([gdbus-codegen not found - needed to build dbus daemon])
+	fi
+fi
+
 AC_CHECK_PROG([has_doxygen], [doxygen], [true], [false])
 AM_CONDITIONAL([HAS_DOXYGEN], [test "x$has_doxygen" = xtrue])
 if test "x$has_doxygen" = xfalse
@@ -239,6 +266,9 @@ AC_CONFIG_FILES([Makefile
 		 lib/Makefile
 		 lib/libgpiod.pc
 		 tools/Makefile
+		 dbus/Makefile
+		 dbus/data/Makefile
+		 dbus/examples/Makefile
 		 tests/Makefile
 		 tests/mockup/Makefile
 		 bindings/cxx/libgpiodcxx.pc

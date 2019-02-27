@@ -6,6 +6,7 @@ doc
 *.tar.gz
 *.patch
 *.swp
+generated-*
 
 # autotools stuff
 .deps/
