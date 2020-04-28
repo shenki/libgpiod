@@ -3,6 +3,7 @@
  * This file is part of libgpiod.
  *
  * Copyright (C) 2017-2018 Bartosz Golaszewski <bartekgola@gmail.com>
+ * Copyright (C) 2020 Bartosz Golaszewski <bgolaszewski@baylibre.com>
  */
 
 #ifndef __LIBGPIOD_GPIOD_CXX_HPP__
@@ -22,6 +23,7 @@ class line_bulk;
 class line_iter;
 class chip_iter;
 struct line_event;
+struct watch_event;
 
 /**
  * @defgroup __gpiod_cxx__ C++ bindings
@@ -118,36 +120,74 @@ public:
 	/**
 	 * @brief Get the line exposed by this chip at given offset.
 	 * @param offset Offset of the line.
+	 * @param watched Should the line be watched for state change events?
 	 * @return Line object.
 	 */
-	GPIOD_API line get_line(unsigned int offset) const;
+	GPIOD_API line get_line(unsigned int offset, bool watched = false) const;
 
 	/**
 	 * @brief Get the line exposed by this chip by name.
 	 * @param name Line name.
+	 * @param watched Should the line be watched for state change events?
 	 * @return Line object.
 	 */
-	GPIOD_API line find_line(const ::std::string& name) const;
+	GPIOD_API line find_line(const ::std::string& name, bool watched = false) const;
 
 	/**
 	 * @brief Get a set of lines exposed by this chip at given offsets.
 	 * @param offsets Vector of line offsets.
+	 * @param watched Should the lines be watched for state change events?
 	 * @return Set of lines held by a line_bulk object.
 	 */
-	GPIOD_API line_bulk get_lines(const ::std::vector<unsigned int>& offsets) const;
+	GPIOD_API line_bulk get_lines(const ::std::vector<unsigned int>& offsets,
+				      bool watched = false) const;
 
 	/**
 	 * @brief Get all lines exposed by this chip.
+	 * @param watched Should the lines be watched for state change events?
 	 * @return All lines exposed by this chip held by a line_bulk object.
 	 */
-	GPIOD_API line_bulk get_all_lines(void) const;
+	GPIOD_API line_bulk get_all_lines(bool watched = false) const;
 
 	/**
 	 * @brief Get a set of lines exposed by this chip by their names.
 	 * @param names Vector of line names.
+	 * @param watched Should the lines be watched for state change events?
 	 * @return Set of lines held by a line_bulk object.
 	 */
-	GPIOD_API line_bulk find_lines(const ::std::vector<::std::string>& names) const;
+	GPIOD_API line_bulk find_lines(const ::std::vector<::std::string>& names,
+				       bool watched = false) const;
+
+	/**
+	 * @brief Wait for state change events on lines exposed by this GPIO chip.
+	 * @param timeout Time to wait before returning if no event occurred.
+	 * @return True if an event occurred and can be read, false if the wait
+	 *         timed out.
+	 */
+	GPIOD_API bool watch_event_wait(const ::std::chrono::nanoseconds& timeout) const;
+
+	/**
+	 * @brief Read a single watch event.
+	 * @return Watch event object.
+	 */
+	GPIOD_API watch_event watch_event_read(void) const;
+
+	/**
+	 * @brief Read multiple watch events.
+	 * @return Vector of watch event objects.
+	 */
+	GPIOD_API ::std::vector<watch_event> watch_event_read_multiple(void) const;
+
+	/**
+	 * @brief Get the watch event file descriptor.
+	 * @return Number of the watch event file descriptor.
+	 */
+	GPIOD_API int watch_event_get_fd(void) const;
+
+	/**
+	 * @brief Stop watching all lines (if any) exposed by this chip for state change events.
+	 */
+	GPIOD_API void unwatch_all(void) const;
 
 	/**
 	 * @brief Equality operator.
@@ -197,6 +237,7 @@ private:
 	chip(::gpiod_chip* chip);
 
 	void throw_if_noref(void) const;
+	watch_event make_watch_event(const ::gpiod_watch_event& event_buf) const noexcept;
 
 	::std::shared_ptr<::gpiod_chip> _m_chip;
 
@@ -368,6 +409,21 @@ public:
 	 * @return True if the user has ownership of this line, false otherwise.
 	 */
 	GPIOD_API bool is_requested(void) const;
+
+	/**
+	 * @brief Start watching this line for state change events.
+	 */
+	GPIOD_API void watch(void) const;
+
+	/**
+	 * @brief Stop watching this line for state change events.
+	 */
+	GPIOD_API void unwatch(void) const;
+
+	/**
+	 * @brief Check if this line is being watched for state change events.
+	 */
+	GPIOD_API bool is_watched(void) const;
 
 	/**
 	 * @brief Read the line value.
@@ -560,6 +616,31 @@ struct line_event
 };
 
 /**
+ * @brief Described a single GPIO line state change event.
+ */
+struct watch_event
+{
+	/**
+	 * @brief Possible event types.
+	 */
+	enum : int {
+		REQUESTED = 1,
+		/**< Line was requested. */
+		RELEASED,
+		/**< Line was released. */
+		CONFIG_CHANGED,
+		/**< Line config has changed. */
+	};
+
+	::std::chrono::nanoseconds timestamp;
+	/**< Best estimate of time of event occurrence in nanoseconds. */
+	int event_type;
+	/**< Type of the event that occurred. */
+	line source;
+	/**< Line object referencing the GPIO line on which the event occurred. */
+};
+
+/**
  * @brief Represents a set of GPIO lines.
  *
  * Internally an object of this class stores an array of line objects
@@ -651,6 +732,16 @@ public:
 	 * @brief Remove all lines from this object.
 	 */
 	GPIOD_API void clear(void);
+
+	/**
+	 * @brief Start watching all lines held by this object for state change events.
+	 */
+	GPIOD_API void watch(void) const;
+
+	/**
+	 * @brief Stop watching all lines held by this object for state change events.
+	 */
+	GPIOD_API void unwatch(void) const;
 
 	/**
 	 * @brief Request all lines held by this object.
