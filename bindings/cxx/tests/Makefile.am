@@ -23,4 +23,5 @@ gpiod_cxx_test_SOURCES =			\
 		tests-chip.cpp			\
 		tests-event.cpp			\
 		tests-iter.cpp			\
-		tests-line.cpp
+		tests-line.cpp			\
+		tests-watch.cpp
