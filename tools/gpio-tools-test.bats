@@ -1040,3 +1040,24 @@ teardown() {
 	test "$status" -eq "0"
 	test "$output" = "%x"
 }
+
+#
+# gpiowatch
+#
+
+@test "gpiowatch: single request event" {
+	gpio_mockup_probe 8 8
+
+	coproc_run_tool gpiowatch "$(gpio_mockup_chip_name 1)" 4
+
+	run_tool gpioset "$(gpio_mockup_chip_name 1)" 4=1
+	sleep 0.2
+
+	coproc_tool_kill
+	coproc_tool_wait
+
+	test "$status" -eq "0"
+
+	output_regex_match \
+"event\\:\\s+REQUESTED\\s+offset\\:\\s+4\\s+timestamp:\\s+\\[\s*[0-9]+\\.[0-9]+\\]"
+}
