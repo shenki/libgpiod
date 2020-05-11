@@ -4,3 +4,4 @@ gpiogetcxx
 gpioinfocxx
 gpiomoncxx
 gpiosetcxx
+gpiowatchcxx

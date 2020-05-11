@@ -72,7 +72,7 @@ static const char *evtypestr(struct gpiod_watch_event *event)
 	case GPIOD_WATCH_EVENT_LINE_RELEASED:
 		ret = "      RELEASED";
 		break;
-	case GPIOD_WATCH_EVENT_LINE_CONFIG_CHANGE:
+	case GPIOD_WATCH_EVENT_LINE_CONFIG_CHANGED:
 		ret = "CONFIG CHANGED";
 		break;
 	}

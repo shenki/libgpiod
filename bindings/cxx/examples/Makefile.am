@@ -16,7 +16,8 @@ noinst_PROGRAMS =				\
 		gpiogetcxx			\
 		gpioinfocxx			\
 		gpiomoncxx			\
-		gpiosetcxx
+		gpiosetcxx			\
+		gpiowatchcxx
 
 gpiodetectcxx_SOURCES = gpiodetectcxx.cpp
 
@@ -29,3 +30,5 @@ gpioinfocxx_SOURCES = gpioinfocxx.cpp
 gpiomoncxx_SOURCES = gpiomoncxx.cpp
 
 gpiosetcxx_SOURCES = gpiosetcxx.cpp
+
+gpiowatchcxx_SOURCES = gpiowatchcxx.cpp
