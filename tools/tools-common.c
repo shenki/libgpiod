@@ -204,3 +204,25 @@ struct gpiod_chip *chip_by_line_name(const char *name)
 	return NULL;
 }
 
+int line_names_to_offsets(struct gpiod_chip *chip, char **lines,
+			  unsigned int *offsets, int num_lines)
+{
+	int i;
+
+	for (i = 0; i < num_lines; i++) {
+		const char *line_name = lines[i];
+		int offset;
+
+		offset = gpiod_chip_find_line(chip, line_name);
+
+		if (offset < 0) {
+			die("chip '%s' does not contain line '%s'",
+					gpiod_chip_get_name(chip),
+					line_name);
+		}
+
+		offsets[i] = offset;
+	}
+
+	return 0;
+}

@@ -32,5 +32,7 @@ int chip_dir_filter(const struct dirent *entry);
 struct gpiod_chip *chip_open_by_name(const char *name);
 struct gpiod_chip *chip_open_lookup(const char *device);
 struct gpiod_chip *chip_by_line_name(const char *name);
+int line_names_to_offsets(struct gpiod_chip *chip, char **lines,
+			  unsigned int *offsets, int num_lines);
 
 #endif /* __GPIOD_TOOLS_COMMON_H__ */
