@@ -15,14 +15,17 @@ static const struct option longopts[] = {
 	{ "active-low",	no_argument,		NULL,	'l' },
 	{ "dir-as-is",	no_argument,		NULL,	'n' },
 	{ "bias",	required_argument,	NULL,	'B' },
+	{ "by-name",	no_argument,		NULL,	'N' },
 	{ GETOPT_NULL_LONGOPT },
 };
 
-static const char *const shortopts = "+hvlnB:";
+static const char *const shortopts = "+hvlnB:N";
 
 static void print_help(void)
 {
 	printf("Usage: %s [OPTIONS] <chip name/number> <offset 1> <offset 2> ...\n",
+	       get_progname());
+	printf("       %s [OPTIONS] -L <line name1> <line name2> ...\n",
 	       get_progname());
 	printf("\n");
 	printf("Read line value(s) from a GPIO chip\n");
@@ -34,6 +37,7 @@ static void print_help(void)
 	printf("  -n, --dir-as-is:\tdon't force-reconfigure line direction\n");
 	printf("  -B, --bias=[as-is|disable|pull-down|pull-up] (defaults to 'as-is'):\n");
 	printf("		set the line bias\n");
+	printf("  -N, --by-name:\tget line by name. All lines must be from the same gpiochip\n");
 	printf("\n");
 	print_bias_help();
 }
@@ -46,7 +50,8 @@ int main(int argc, char **argv)
 	unsigned int *offsets, i, num_lines;
 	struct gpiod_line_bulk *lines;
 	struct gpiod_chip *chip;
-	char *device, *end;
+	bool by_name = false;
+	char *end;
 
 	for (;;) {
 		optc = getopt_long(argc, argv, shortopts, longopts, &opti);
@@ -69,6 +74,9 @@ int main(int argc, char **argv)
 		case 'B':
 			flags |= bias_flags(optarg);
 			break;
+		case 'N':
+			by_name = true;
+			break;
 		case '?':
 			die("try %s --help", get_progname());
 		default:
@@ -79,29 +87,46 @@ int main(int argc, char **argv)
 	argc -= optind;
 	argv += optind;
 
-	if (argc < 1)
-		die("gpiochip must be specified");
+	if (by_name) {
+		if (argc < 1)
+			die("at least one line name must be specified");
 
-	if (argc < 2)
-		die("at least one GPIO line offset must be specified");
+		/* line0 line1 ... lineN */
+		num_lines = argc;
 
-	device = argv[0];
-	num_lines = argc - 1;
+		chip = chip_by_line_name(argv[0]);
+		if (!chip)
+			die("unable to find gpiochip");
+	} else {
+		/* gpiochip offset0 offset1 ... offsetN */
+		if (argc < 1)
+			die("gpiochip must be specified");
+
+		if (argc < 2)
+			die("at least one GPIO line offset must be specified");
+
+		chip = chip_open_lookup(argv[0]);
+		if (!chip)
+			die_perror("unable to open %s", argv[0]);
+
+		argv++;
+		num_lines = argc - 1;
+	}
 
 	values = malloc(sizeof(*values) * num_lines);
 	offsets = malloc(sizeof(*offsets) * num_lines);
 	if (!values || !offsets)
 		die("out of memory");
 
-	for (i = 0; i < num_lines; i++) {
-		offsets[i] = strtoul(argv[i + 1], &end, 10);
-		if (*end != '\0' || offsets[i] > INT_MAX)
-			die("invalid GPIO offset: %s", argv[i + 1]);
+	if (by_name) {
+		line_names_to_offsets(chip, argv, offsets, NULL, num_lines);
+	} else {
+		for (i = 0; i < num_lines; i++) {
+			offsets[i] = strtoul(argv[i], &end, 10);
+			if (*end != '\0' || offsets[i] > INT_MAX)
+				die("invalid GPIO offset: %s", argv[i]);
+		}
 	}
-
-	chip = chip_open_lookup(device);
-	if (!chip)
-		die_perror("unable to open %s", device);
 
 	lines = gpiod_chip_get_lines(chip, offsets, num_lines);
 	if (!lines)
