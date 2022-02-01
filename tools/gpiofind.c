@@ -31,9 +31,8 @@ static void print_help(void)
 
 int main(int argc, char **argv)
 {
-	int i, num_chips, optc, opti, offset;
 	struct gpiod_chip *chip;
-	struct dirent **entries;
+	int optc, opti, offset;
 
 	for (;;) {
 		optc = getopt_long(argc, argv, shortopts, longopts, &opti);
@@ -60,26 +59,14 @@ int main(int argc, char **argv)
 	if (argc != 1)
 		die("exactly one GPIO line name must be specified");
 
-	num_chips = scandir("/dev/", &entries, chip_dir_filter, alphasort);
-	if (num_chips < 0)
-		die_perror("unable to scan /dev");
 
-	for (i = 0; i < num_chips; i++) {
-		chip = chip_open_by_name(entries[i]->d_name);
-		if (!chip) {
-			if (errno == EACCES)
-				continue;
-
-			die_perror("unable to open %s", entries[i]->d_name);
-		}
-
+	chip = chip_by_line_name(argv[0]);
+	if (chip) {
 		offset = gpiod_chip_find_line(chip, argv[0]);
-		if (offset >= 0) {
-			printf("%s %u\n",
-			       gpiod_chip_get_name(chip), offset);
-			gpiod_chip_unref(chip);
-			return EXIT_SUCCESS;
-		}
+
+		printf("%s %u\n", gpiod_chip_get_name(chip), offset);
+		gpiod_chip_unref(chip);
+		return EXIT_SUCCESS;
 	}
 
 	return EXIT_FAILURE;

@@ -169,3 +169,33 @@ struct gpiod_chip *chip_open_lookup(const char *device)
 
 	return chip;
 }
+
+
+struct gpiod_chip *chip_by_line_name(const char *name)
+{
+	int num_chips, offset, i;
+	struct dirent **entries;
+	struct gpiod_chip *chip;
+
+
+	num_chips = scandir("/dev/", &entries, chip_dir_filter, alphasort);
+	if (num_chips < 0)
+		die_perror("unable to scan /dev");
+
+	for (i = 0; i < num_chips; i++) {
+		chip = chip_open_by_name(entries[i]->d_name);
+		if (!chip) {
+			if (errno == EACCES)
+				continue;
+
+			die_perror("unable to open %s", entries[i]->d_name);
+		}
+
+		offset = gpiod_chip_find_line(chip, name);
+		if (offset >= 0)
+			return chip;
+	}
+
+	return NULL;
+}
+

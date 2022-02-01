@@ -31,5 +31,6 @@ int make_signalfd(void);
 int chip_dir_filter(const struct dirent *entry);
 struct gpiod_chip *chip_open_by_name(const char *name);
 struct gpiod_chip *chip_open_lookup(const char *device);
+struct gpiod_chip *chip_by_line_name(const char *name);
 
 #endif /* __GPIOD_TOOLS_COMMON_H__ */
