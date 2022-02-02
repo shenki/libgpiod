@@ -23,14 +23,17 @@ static const struct option longopts[] = {
 	{ "sec",		required_argument,	NULL,	's' },
 	{ "usec",		required_argument,	NULL,	'u' },
 	{ "background",		no_argument,		NULL,	'b' },
+	{ "by-name",		no_argument,		NULL,	'N' },
 	{ GETOPT_NULL_LONGOPT },
 };
 
-static const char *const shortopts = "+hvlB:D:m:s:u:b";
+static const char *const shortopts = "+hvlB:D:m:s:u:bN";
 
 static void print_help(void)
 {
 	printf("Usage: %s [OPTIONS] <chip name/number> <offset1>=<value1> <offset2>=<value2> ...\n",
+	       get_progname());
+	printf("       %s [OPTIONS] -L <line name1> <line name2> ...\n",
 	       get_progname());
 	printf("\n");
 	printf("Set GPIO line values of a GPIO chip and maintain the state until the process exits\n");
@@ -48,6 +51,7 @@ static void print_help(void)
 	printf("  -s, --sec=SEC:\tspecify the number of seconds to wait (only valid for --mode=time)\n");
 	printf("  -u, --usec=USEC:\tspecify the number of microseconds to wait (only valid for --mode=time)\n");
 	printf("  -b, --background:\tafter setting values: detach from the controlling terminal\n");
+	printf("  -N, --by-name:\tset line by name. All lines must be from the same gpiochip\n");
 	printf("\n");
 	print_bias_help();
 	printf("\n");
@@ -195,7 +199,8 @@ int main(int argc, char **argv)
 	struct gpiod_line_bulk *lines;
 	struct callback_data cbdata;
 	struct gpiod_chip *chip;
-	char *device, *end;
+	bool by_name = false;
+	char *end;
 
 	memset(&cbdata, 0, sizeof(cbdata));
 
@@ -239,6 +244,9 @@ int main(int argc, char **argv)
 		case 'b':
 			cbdata.daemonize = true;
 			break;
+		case 'N':
+			by_name = true;
+			break;
 		case '?':
 			die("try %s --help", get_progname());
 		default:
@@ -257,36 +265,56 @@ int main(int argc, char **argv)
 	    cbdata.daemonize)
 		die("can't daemonize in this mode");
 
-	if (argc < 1)
-		die("gpiochip must be specified");
+	if (by_name) {
+		char *line_name;
 
-	if (argc < 2)
-		die("at least one GPIO line offset to value mapping must be specified");
+		if (argc < 1)
+			die("at least one line name must be specified");
 
-	device = argv[0];
+		line_name = split_line(argv[0]);
+		chip = chip_by_line_name(line_name);
+		if (!chip)
+			die("unable to find '%s' on a gpiochip", line_name);
 
-	num_lines = argc - 1;
+		free(line_name);
+
+		num_lines = argc;
+	} else {
+		if (argc < 1)
+			die("gpiochip must be specified");
+
+		if (argc < 2)
+			die("at least one GPIO line offset to value mapping must be specified");
+
+
+		chip = chip_open_lookup(argv[0]);
+		if (!chip)
+			die_perror("unable to open %s", argv[0]);
+
+		num_lines = argc - 1;
+		argv++;
+	}
 
 	offsets = malloc(sizeof(*offsets) * num_lines);
 	values = malloc(sizeof(*values) * num_lines);
 	if (!values || !offsets)
 		die("out of memory");
 
-	for (i = 0; i < num_lines; i++) {
-		rv = sscanf(argv[i + 1], "%u=%d", &offsets[i], &values[i]);
-		if (rv != 2)
-			die("invalid offset<->value mapping: %s", argv[i + 1]);
+	if (by_name) {
+		line_names_to_offsets(chip, argv, offsets, values, num_lines);
+	} else {
+		for (i = 0; i < num_lines; i++) {
+			rv = sscanf(argv[i], "%u=%d", &offsets[i], &values[i]);
+			if (rv != 2)
+				die("invalid offset<->value mapping: %s", argv[i + 1]);
 
-		if (values[i] != 0 && values[i] != 1)
-			die("value must be 0 or 1: %s", argv[i + 1]);
+			if (values[i] != 0 && values[i] != 1)
+				die("value must be 0 or 1: %s", argv[i]);
 
-		if (offsets[i] > INT_MAX)
-			die("invalid offset: %s", argv[i + 1]);
+			if (offsets[i] > INT_MAX)
+				die("invalid offset: %s", argv[i]);
+		}
 	}
-
-	chip = chip_open_lookup(device);
-	if (!chip)
-		die_perror("unable to open %s", device);
 
 	lines = gpiod_chip_get_lines(chip, offsets, num_lines);
 	if (!lines)
