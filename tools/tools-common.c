@@ -204,14 +204,56 @@ struct gpiod_chip *chip_by_line_name(const char *name)
 	return NULL;
 }
 
+char *split_line(const char *line_pair)
+{
+	char *name_end;
+	size_t name_len;
+	char *line_name;
+
+	name_end = strchr(line_pair, '=');
+	if (!name_end)
+		die("invalid name/value '%s'", line_pair);
+
+	name_len = name_end - line_pair;
+
+	if (name_len > 32)
+		die("line name exceeds maximum length");
+
+	line_name = calloc(1, name_len + 1);
+	strncpy(line_name, line_pair, name_len);
+
+	return line_name;
+}
+
 int line_names_to_offsets(struct gpiod_chip *chip, char **lines,
-			  unsigned int *offsets, int num_lines)
+			  unsigned int *offsets,
+			  int *values,
+			  int num_lines)
 {
 	int i;
 
 	for (i = 0; i < num_lines; i++) {
-		const char *line_name = lines[i];
+		char *line_name;
+		int value;
 		int offset;
+
+		if (values) {
+			const char *line_pair = lines[i];
+			char *name_end;
+			int rv;
+
+			line_name = split_line(line_pair);
+			name_end = strchr(line_pair, '=');
+
+			rv = sscanf(name_end, "=%d", &value);
+			if (rv != 1)
+				die("invalid offset<->value mapping: %s", line_pair);
+
+			if (value != 0 && value != 1)
+				die("value must be 0 or 1: %s", line_pair);
+		} else {
+			line_name = lines[i];
+		}
 
 		offset = gpiod_chip_find_line(chip, line_name);
 
@@ -222,6 +264,11 @@ int line_names_to_offsets(struct gpiod_chip *chip, char **lines,
 		}
 
 		offsets[i] = offset;
+
+		if (values) {
+			values[i] = value;
+			free(line_name);
+		}
 	}
 
 	return 0;
