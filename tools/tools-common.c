@@ -190,12 +190,17 @@ struct gpiod_chip *chip_by_line_name(const char *name)
 
 			die_perror("unable to open %s", entries[i]->d_name);
 		}
+		free(entries[i]);
 
 		offset = gpiod_chip_find_line(chip, name);
-		if (offset >= 0)
+		if (offset >= 0) {
+			free(entries);
 			return chip;
+		}
+		gpiod_chip_unref(chip);
 	}
 
+	free(entries);
 	return NULL;
 }
 
