@@ -178,7 +178,8 @@ GPIOD_API void gpiod_line_bulk_foreach_line(struct gpiod_line_bulk *bulk,
 #define line_bulk_foreach_line(bulk, line, index)			\
 	for ((index) = 0, (line) = (bulk)->lines[0];			\
 	     (index) < (bulk)->num_lines;				\
-	     (index)++, (line) = (bulk)->lines[(index)])
+	     (index)++, 						\
+	     (line) = (index) < (bulk)->num_lines ? (bulk)->lines[(index)] : NULL)
 
 GPIOD_API bool gpiod_is_gpiochip_device(const char *path)
 {
