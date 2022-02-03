@@ -391,6 +391,79 @@ teardown() {
 	output_regex_match ".*invalid bias.*"
 }
 
+@test "gpioget: invalid line name (from different gpiochip) " {
+	gpio_mockup_probe named-lines 8 8 8
+
+	run_tool gpioget --by-name \
+				gpio-mockup-A-0 \
+				gpio-mockup-A-2 \
+				gpio-mockup-B-3
+
+	test "$status" -eq "1"
+	output_regex_match ".*does not contain line 'gpio-mockup-B-3'.*"
+}
+
+@test "gpioget: invalid line name (non existant line on a chip) " {
+	gpio_mockup_probe named-lines 8 8 8
+
+	run_tool gpioget --by-name \
+				gpio-mockup-A-0 \
+				missing
+
+	test "$status" -eq "1"
+	output_regex_match ".*does not contain line 'missing'.*"
+}
+
+@test "gpioget: invalid line name (non existant line, no chip) " {
+	gpio_mockup_probe named-lines 8 8 8
+
+	run_tool gpioget --by-name missing
+
+	test "$status" -eq "1"
+	output_regex_match ".*unable to find gpiochip.*"
+}
+
+@test "gpioget: read some lines by name" {
+	gpio_mockup_probe named-lines 8 8 8
+
+	gpio_mockup_set_pull 1 1 1
+	gpio_mockup_set_pull 1 4 1
+	gpio_mockup_set_pull 1 6 1
+
+	run_tool gpioget --by-name \
+				gpio-mockup-B-0 \
+				gpio-mockup-B-1 \
+				gpio-mockup-B-4 \
+				gpio-mockup-B-6
+
+	test "$status" -eq "0"
+	test "$output" = "0 1 1 1"
+}
+
+@test "gpioget: no arguments (by name)" {
+	run_tool gpioget --by-name
+
+	test "$status" -eq "1"
+	output_regex_match ".*at least one line name must be specified"
+}
+
+@test "gpioget: read some lines by name using short option" {
+	gpio_mockup_probe named-lines 8 8 8
+
+	gpio_mockup_set_pull 1 1 1
+	gpio_mockup_set_pull 1 4 1
+	gpio_mockup_set_pull 1 6 1
+
+	run_tool gpioget -N \
+				gpio-mockup-B-0 \
+				gpio-mockup-B-1 \
+				gpio-mockup-B-4 \
+				gpio-mockup-B-6
+
+	test "$status" -eq "0"
+	test "$output" = "0 1 1 1"
+}
+
 #
 # gpioset test cases
 #
