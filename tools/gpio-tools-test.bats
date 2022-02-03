@@ -670,6 +670,117 @@ teardown() {
 	output_regex_match ".*unable to request lines.*"
 }
 
+@test "gpioset: invalid value (by name)" {
+	gpio_mockup_probe named-lines 8 8 8
+
+	run_tool gpioset --by-name gpio-mockup-A-0=foobar
+
+	test "$status" -eq "1"
+	output_regex_match ".*invalid offset<->value mapping: gpio-mockup-A-0=foobar.*"
+}
+
+@test "gpioset: invalid line syntax by name, missing =" {
+	gpio_mockup_probe named-lines 8 8 8
+
+	run_tool gpioset --by-name gpio-mockup-A-0foobar
+
+	test "$status" -eq "1"
+	output_regex_match ".*invalid name/value 'gpio-mockup-A-0foobar'*"
+}
+
+@test "gpioset: invalid line syntax by name, leading =" {
+	gpio_mockup_probe named-lines 8 8 8
+
+	run_tool gpioset --by-name =gpio-mockup-A-0foobar
+
+	test "$status" -eq "1"
+	output_regex_match ".*unable to find '' on a gpiochip*"
+}
+
+@test "gpioset: missing value (by name)" {
+	gpio_mockup_probe named-lines 8 8 8
+
+	run_tool gpioset --by-name gpio-mockup-A-0=
+
+	test "$status" -eq "1"
+	output_regex_match ".*invalid offset<->value mapping: gpio-mockup-A-0=*"
+}
+
+@test "gpioset: invalid line name (from different gpiochip) " {
+	gpio_mockup_probe named-lines 8 8 8
+
+	run_tool gpioset --by-name \
+				gpio-mockup-A-0=1 \
+				gpio-mockup-A-2=0 \
+				gpio-mockup-B-3=1
+
+	test "$status" -eq "1"
+	output_regex_match ".*does not contain line 'gpio-mockup-B-3'.*"
+}
+
+@test "gpiogst: invalid line name (non existant line on a chip) " {
+	gpio_mockup_probe named-lines 8 8 8
+
+	run_tool gpioset --by-name \
+				gpio-mockup-A-0=1 \
+				missing=0
+
+	test "$status" -eq "1"
+	output_regex_match ".*does not contain line 'missing'.*"
+}
+
+@test "gpioset: invalid line name (non existant line, no chip) " {
+	gpio_mockup_probe named-lines 8 8 8
+
+	run_tool gpioset --by-name missing=1
+
+	test "$status" -eq "1"
+	output_regex_match ".*unable to find 'missing' on a gpiochip*"
+}
+
+@test "gpioset: set lines by name and wait for SIGTERM" {
+	gpio_mockup_probe named-lines 2 2 8
+
+	coproc_run_tool gpioset --mode=signal --by-name \
+						gpio-mockup-C-3=1 \
+						gpio-mockup-C-6=1 \
+						gpio-mockup-C-7=0
+
+	gpio_mockup_check_value 2 3 1
+	gpio_mockup_check_value 2 6 1
+	gpio_mockup_check_value 2 7 0
+
+	coproc_tool_kill
+	coproc_tool_wait
+
+	test "$status" -eq "0"
+}
+
+@test "gpioset: set lines by name using short option and wait for SIGTERM" {
+	gpio_mockup_probe named-lines 2 2 8
+
+	coproc_run_tool gpioset --mode=signal -N \
+						gpio-mockup-C-3=1 \
+						gpio-mockup-C-6=1 \
+						gpio-mockup-C-7=0
+
+	gpio_mockup_check_value 2 3 1
+	gpio_mockup_check_value 2 6 1
+	gpio_mockup_check_value 2 7 0
+
+	coproc_tool_kill
+	coproc_tool_wait
+
+	test "$status" -eq "0"
+}
+
+@test "gpioset: no arguments (by name)" {
+	run_tool gpioset --by-name
+
+	test "$status" -eq "1"
+	output_regex_match ".*at least one line name must be specified"
+}
+
 #
 # gpiomon test cases
 #
